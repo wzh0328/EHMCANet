@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import Config as config
-config_vit = config.get_CTranS_config()
+config_vit = config.get_config()
 from thop import profile
 # from tensorflow.keras.layers import concatenate
 import torch.nn.functional as F
@@ -93,7 +93,7 @@ class UpBlock_avg(nn.Module):
 
 
 
-#低级细节特征自注意机制
+#MSRA module
 class DFMAS(nn.Module):
     def __init__(self, in_ch):
         super(DFMAS, self).__init__()
@@ -127,7 +127,7 @@ class DFMAS(nn.Module):
         return out_ch
 
 
-# Original sSE、cSE、scSE block
+# ESA module
 class sSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -139,8 +139,9 @@ class sSE(nn.Module):
     def forward(self, U):
         q = self.Conv1x1(U)  # U:[bs,c,h,w] to q:[bs,1,h,w]
         q = self.norm(q)
-        return U * q  # 广播机制
+        return U * q  #
 
+# ECA module
 class cSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -222,27 +223,7 @@ class DepthWiseConv2d(nn.Module):
         return self.conv2(self.norm_layer(self.conv1(x)))
 
 
-# class scSE(nn.Module):
-#     def __init__(self, in_channels):
-#         super().__init__()
-#         self.cSE = cSE(in_channels)
-#         self.sSE = sSE(in_channels)
-#         self.conv_concat = nn.Conv2d(2 * in_channels, in_channels, kernel_size=1)  # 1x1 convolution after concatenation
-#
-#     def forward(self, U):
-#         U_sse = self.sSE(U)
-#         U_cse = self.cSE(U)
-#
-#         # Concatenate the output of cSE and sSE along the channel dimension (dim=1)
-#         U_concat = torch.cat((U_cse, U_sse), dim=1)
-#
-#         # Apply a 1x1 convolution on the concatenated feature maps
-#         U_combined = self.conv_concat(U_concat)
-#
-#         # return U_cse+U_sse
-#         return U_combined
-
-
+# ESCA module
 class scSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -261,7 +242,7 @@ class scSE(nn.Module):
         # Apply depthwise separable convolution
         output = self.depthwise_conv(U_concat)
 
-        output = output + U   ####加上残差   Test_session_04.01_15h30。MoNuSeg的Dice=80.74
+        output = output + U
 
         return output
 
@@ -285,14 +266,7 @@ class gt_UpBlock(nn.Module):
 
 def upsample_bilinear(input_tensor, scale_factor):
     """
-    使用双线性插值上采样输入张量。
 
-    Parameters:
-    - input_tensor (torch.Tensor): 输入张量
-    - scale_factor (float): 上采样的比例因子
-
-    Returns:
-    - torch.Tensor: 上采样后的张量
     """
     # 使用双线性插值上采样
     upsampled_tensor = F.interpolate(input_tensor, scale_factor=scale_factor, mode='bilinear', align_corners=False)
@@ -301,7 +275,6 @@ def upsample_bilinear(input_tensor, scale_factor):
 
 
 class UNet_12D_34depthSE_ds(nn.Module):
-    ######把cSE和sSE中1*1CONV，换成深度可分离卷积，还有把Concat之后的卷积也换成深度可分离卷积
     def __init__(self,config, n_channels=3, n_classes=9,vis=False,gt_ds=True):
         '''
         n_channels : number of channels of the input.
@@ -328,7 +301,7 @@ class UNet_12D_34depthSE_ds(nn.Module):
         self.down4 = DownBlock(in_channels*8, in_channels*8, nb_Conv=2)
 
 
-        ###加入DFMAS模块
+        ##
         self.DF1 = DFMAS(in_channels)
         # self.scSE1 = scSE(in_channels)
         # self.DFu2 = DFMAS(in_channels)
@@ -357,14 +330,11 @@ class UNet_12D_34depthSE_ds(nn.Module):
 
         if gt_ds:
             print('gt deep supervision was used')
-            ##第四层经过三次转置卷积
             self.ds_0up4 = gt_UpBlock(in_channels*4,in_channels*2,nb_Conv=2)
             self.ds_1up4 = gt_UpBlock(in_channels*2,in_channels*1,nb_Conv=2)
             self.ds_2up4 = gt_UpBlock(in_channels,n_classes,nb_Conv=2)
-            ##第三层经过两次次转置卷积
             self.ds_0up3 = gt_UpBlock(in_channels*2,in_channels,nb_Conv=2)
             self.ds_1up3 = gt_UpBlock(in_channels,n_classes,nb_Conv=2)
-            ##第二层经过一次转置卷积
             self.ds_up2 = gt_UpBlock(in_channels ,n_classes,nb_Conv=2)
             self.ds_up1 = gt_UpBlock(in_channels ,n_classes,nb_Conv=2)
             # 第一层不用上采样,但是需要把通道数从64变成1
@@ -379,7 +349,6 @@ class UNet_12D_34depthSE_ds(nn.Module):
     def forward(self, x):
         # Question here
         # x = x.float()
-        ###在编码器的12层加D模块，在编码器的34层加scSE模块，并且scSE在34层解码器中也有
         x1 = self.inc(x)
         x1_0 = self.DF1(x1)
 
@@ -403,7 +372,6 @@ class UNet_12D_34depthSE_ds(nn.Module):
         x6 = self.up5(avg,x5)
         x_u4 = self.up4(x6, x4_1)
 
-        ###把scSE模块加入解码器中
         x_u4 = self.scSE3(x_u4)
         x_u3 = self.up3(x_u4, x3_1)
         x_u3 = self.scSE_up3(x_u3)
@@ -415,19 +383,13 @@ class UNet_12D_34depthSE_ds(nn.Module):
 
 
         if self.gt_ds:
-            ####把解码器输出变成和GT一样的大小
-            #第四层经过三次上采样
+
             gt_0pre4 = self.ds_0up4(x_u4)
             gt_1pre4 = self.ds_1up4(gt_0pre4)
             gt_2pre4 = self.ds_2up4(gt_1pre4)
-            #第三层经过两次
             gt_0pre3 = self.ds_0up3(x_u3)
             gt_1pre3 = self.ds_1up3(gt_0pre3)
-            #第二层上采样
             gt_pre2 = self.ds_up2(x_u2)
-            # 第一层不用上采样,但是需要把通道数从64变成1
-            x_0u1 = self.gt_conv4(x_u1)
-            # x_0u1 = self.outc(x_u1) #####20240423后更改
 
 
         if self.last_activation is not None:
@@ -439,20 +401,8 @@ class UNet_12D_34depthSE_ds(nn.Module):
         # print(logits.size())
         # return logits
         if self.gt_ds:
-            # return torch.sigmoid(gt_2pre4), torch.sigmoid(gt_1pre3), torch.sigmoid(gt_pre2), torch.sigmoid(x_0u1), logits
-            # return torch.sigmoid(gt_2pre4), torch.sigmoid(gt_1pre3), torch.sigmoid(gt_pre2) , logits
-            # return torch.sigmoid(gt_2pre4), torch.sigmoid(gt_1pre3), torch.sigmoid(gt_pre2) ,logits
-            # return torch.sigmoid(x_u4), torch.sigmoid(x_u3), torch.sigmoid(x_u2) ,logits
-            # return gt_2pre4, gt_1pre3, gt_pre2,logits   ###输出热力图
-            # return x_u4, x_u3, x_u2 ,logits  ###输出底色是蓝绿色的热力图
-            # return x1,x2, x3,x4
-            # return x1,x1_0,x2,x2_0   ###编码器输出
-            # return x_u4,x_u3,x_u2,x_u1 ##解码器输出，没有经过上采样
-            # return x3,x3_1,x4,x4_1
-            # return x5,avg,x5,avg
-            # return torch.sigmoid(x1),torch.sigmoid(x1_0), torch.sigmoid(x2),torch.sigmoid(x2_0)
-            # return x4_1,x3_1, x2_0,x1_0    ###编码器输出热力图
-            return x_u4, x_u3, x_u2, x_u1    ###解码器输出热力图
+            return torch.sigmoid(gt_2pre4), torch.sigmoid(gt_1pre3), torch.sigmoid(gt_pre2),logits
+
 
         else:
             return logits
