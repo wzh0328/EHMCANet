@@ -90,19 +90,6 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
             net.eval()
             with torch.no_grad():
                 outputs = net(input)
-                ###BCU-Net
-                # _, _, outputs = net(input)
-                ###深度监督的输出有好几个
-                # _,_,_,_,outputs = net(input)
-
-                ##输出热力图
-                # L1,L2,L3,L4 = net(input)
-                # L4, L3, L2, L1 = L4.cpu().detach().numpy(), L3.cpu().detach().numpy(), L2.cpu().detach().numpy(), L1.cpu().detach().numpy()
-                # L4 = np.save('./visual_CLTS_hbu03_3/ACDC11_L4.npy', L4)
-                # L3 = np.save('./visual_CLTS_hbu03_3/ACDC11_L3.npy', L3)
-                # L2 = np.save('./visual_CLTS_hbu03_3/ACDC11_L2.npy', L2)
-                # L1 = np.save('./visual_CLTS_hbu03_3/ACDC11_L1.npy', L1)
-
                 out = torch.argmax(torch.softmax(outputs, dim=1), dim=1).squeeze(0)
                 out = out.cpu().detach().numpy()
                 if x != patch_size[0] or y != patch_size[1]:
@@ -372,7 +359,7 @@ class WeightedDiceBCE(nn.Module):
         return dice_BCE_loss
 
 
-####ISIC2018数据集
+####
 class DiceLoss(nn.Module):
     def __init__(self, n_classes):
         super(DiceLoss, self).__init__()
