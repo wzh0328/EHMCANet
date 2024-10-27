@@ -69,24 +69,13 @@ def train_one_epoch(loader, model, criterion, optimizer, writer, epoch, lr_sched
         # ====================================================
 
         # preds = model(images)
-        ds4,ds3,ds2,ds1,preds = model(images)   #######ds
+        ds3,ds2,ds1,preds = model(images)   #######ds
         output_loss = criterion(preds, masks.float())  #output Loss
         ds4_loss = criterion(ds4,masks.float())
         ds3_loss = criterion(ds3,masks.float())
         ds2_loss = criterion(ds2,masks.float())
-        ds1_loss = criterion(ds1,masks.float())
-
-        # out_loss = output_loss+ds4_loss+ds3_loss+ds2_loss+ds1_loss  #Test_session_03.11_08h52。dice_pred 0.78279
-        out_loss = output_loss + 0.4 * ds4_loss + 0.4 * ds3_loss + 0.1 * ds2_loss + 0.1 * ds1_loss  ## 0.7828??? #Test_session_03.11_09h17。dice_pred 0.7957148
-
-        # test_session = "Test_session_03.11_20h58"测试0.7739
-        # test_session = "Test_session_03.11_20h57"测试测试0.7739
-        # out_loss = output_loss + 0.1 * ds4_loss + 0.1 * ds3_loss + 0.4 * ds2_loss + 0.4 * ds1_loss   # 0.76847??? ##UNet_encoder_D_avg_decoer_scSE1_ds  #Test_session_03.11_20h57，train0.8094测试0.7739
-
-
-        # out_loss = output_loss + 0.25 * ds4_loss + 0.25 * ds3_loss + 0.25 * ds2_loss + 0.25 * ds1_loss   ##0.7810???  ##UNet_encoder_D_avg_decoer_scSE1_ds  #Test_session_03.11_21h20  dice:0.8032
-        ##用UNet_encoder_D_decoer_scSE1_ds网络，深度监督损失系数都用0.25   #Test_session_03.11_21h40  训练0.8106测试0.7677033
-
+        
+        out_loss = 0.25 * output_loss + 0.25 * ds3_loss + 0.25 * ds2_loss + 0.25 * ds1_loss
 
         if model.training:
             optimizer.zero_grad()
@@ -148,7 +137,4 @@ def train_one_epoch(loader, model, criterion, optimizer, writer, epoch, lr_sched
 
     if lr_scheduler is not None:
         lr_scheduler.step()
-    # if epoch + 1 > 10: # Plateau
-    #     if lr_scheduler is not None:
-    #         lr_scheduler.step(train_dice_avg)
     return average_loss, train_dice_avg
