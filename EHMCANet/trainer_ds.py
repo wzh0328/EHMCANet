@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2021/6/19 2:14 下午
-# @Author  : Haonan Wang
-# @File    : Train_one_epoch.py
 # @Software: PyCharm
 import torch.optim
 import os
