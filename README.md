@@ -50,7 +50,7 @@ python EHMCANet/train.py --root_path ./EHMCANet/train.py --batch_size 4 --img_si
 EHMCANet:
 python EHMCANet/test.py --root_path ./EHMCANet/test.py --img_size 256 
 ```
-You can download the weights of our network from the [link](https://drive.google.com/drive/folders/1QGzN08vPdxWEFgiPvHFz_rcU--5KGryW?usp=sharing).
+You can download the weights of our network from the [link](https://drive.google.com/drive/folders/1eQBm9W30OCnbQVLN2YaxWCTcWSR7SQxD?usp=drive_link).
 
 ## Reference
 
