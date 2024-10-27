@@ -71,27 +71,15 @@ class UpBlock_avg(nn.Module):
         super(UpBlock_avg, self).__init__()
         # upsampled_tensor = F.interpolate(input_tensor, scale_factor=scale_factor, mode='bilinear', align_corners=False)
 
-        self.up = nn.Upsample(scale_factor=16)   ###img_szie=256时
-        # self.up = nn.Upsample(scale_factor=14)   ###img_szie=224时
-        # self.up = nn.ConvTranspose2d(in_channels//2,in_channels//2,(2,2),2)
+        self.up = nn.Upsample(scale_factor=16)   ###img_szie=256
         self.nConvs = _make_nConv(in_channels, out_channels, nb_Conv, activation)
 
     def forward(self, x, skip_x):
         out = self.up(x)
         # print('out.shape',out.shape)
         # print('skip_x.shape',skip_x.shape)
-
-        ####img_szie=256时
-        # out.shape
-        # torch.Size([16, 512, 16, 16])
-        # skip_x.shape
-        # torch.Size([16, 512, 14, 14])
-
         x = torch.cat([out, skip_x], dim=1)  # dim 1 is the channel dimension
         return self.nConvs(x)
-
-
-
 
 #MSRA module
 class DFMAS(nn.Module):
@@ -120,10 +108,7 @@ class DFMAS(nn.Module):
         out = self.sigmoid(out)
         out_ch = x*out
 
-        # b,c,h,w = out_ch.shape
-        # out_ch = torch.ones(b,c,h,w)
-        # cSE = cSE()
-        # out_ch = cSE(out_ch)
+       
         return out_ch
 
 
@@ -131,8 +116,6 @@ class DFMAS(nn.Module):
 class sSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
-        # self.Conv1x1 = nn.Conv2d(in_channels, 1, kernel_size=1, bias=False)
-        # self.Conv1x1 = DepthwiseSeparableConv1(in_channels, 1, kernel_size=1, stride=1,padding=0)   ####深度可分离卷积
         self.Conv1x1 = DepthWiseConv2d(in_channels, 1, kernel_size=1, stride=1,padding=0)   ####深度可分离卷积
         self.norm = nn.Sigmoid()
 
@@ -230,7 +213,7 @@ class scSE(nn.Module):
         self.cSE = cSE(in_channels)
         self.sSE = sSE(in_channels)
         # self.depthwise_conv = DepthwiseSeparableConv3(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0)
-        self.depthwise_conv = DepthWiseConv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0)   ####Test_session_04.01_15h13
+        self.depthwise_conv = DepthWiseConv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0)   ####
 
     def forward(self, U):
         U_sse = self.sSE(U)
@@ -257,7 +240,6 @@ class gt_UpBlock(nn.Module):
         # self.up = nn.Conv2DTranspose(filters=128, kernel_size=(3, 3), strides=(2, 2), padding='same')
         self.nConvs = _make_nConv(in_channels, out_channels, nb_Conv, activation)
 
-    # def forward(self, x, skip_x):
     def forward(self, x):
         out = self.up(x)
         # x = torch.cat([out, skip_x], dim=1)  # dim 1 is the channel dimension
@@ -268,7 +250,6 @@ def upsample_bilinear(input_tensor, scale_factor):
     """
 
     """
-    # 使用双线性插值上采样
     upsampled_tensor = F.interpolate(input_tensor, scale_factor=scale_factor, mode='bilinear', align_corners=False)
 
     return upsampled_tensor
@@ -337,8 +318,7 @@ class UNet_12D_34depthSE_ds(nn.Module):
             self.ds_1up3 = gt_UpBlock(in_channels,n_classes,nb_Conv=2)
             self.ds_up2 = gt_UpBlock(in_channels ,n_classes,nb_Conv=2)
             self.ds_up1 = gt_UpBlock(in_channels ,n_classes,nb_Conv=2)
-            # 第一层不用上采样,但是需要把通道数从64变成1
-            self.gt_conv4 = nn.Sequential(nn.Conv2d(in_channels, n_classes, 1))
+            
 
 
         if n_classes == 1:
@@ -376,7 +356,6 @@ class UNet_12D_34depthSE_ds(nn.Module):
         x_u3 = self.up3(x_u4, x3_1)
         x_u3 = self.scSE_up3(x_u3)
         x_u2 = self.up2(x_u3, x2_0)
-        x_u1 = self.up1(x_u2, x1_0)
 
 
 
@@ -414,6 +393,6 @@ if __name__ == '__main__':
     y = net(x)
 
     flops, params = profile(net.cuda(), inputs=(x,))
-    print("参数量：", params / 1e6)
+    print("Params：", params / 1e6)
     print("FLOPS：", flops / 1e9)
 
