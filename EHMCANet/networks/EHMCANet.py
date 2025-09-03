@@ -356,6 +356,7 @@ class UNet_12D_34depthSE_ds(nn.Module):
         x_u3 = self.up3(x_u4, x3_1)
         x_u3 = self.scSE_up3(x_u3)
         x_u2 = self.up2(x_u3, x2_0)
+        x_u1 = self.up1(x_u2, x1_0)
 
 
 
